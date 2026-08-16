@@ -18,23 +18,16 @@ glm-ocr-experiment/
 ├── reproduce.sh            # one-shot 3-section runner (pytorch | ollama | sglang | all)
 ├── sample_doc.png          # 900×1200 RGB invoice test image used for all runs
 ├── scripts/
-│   ├── glm_ocr_test.py
-│   └── ollama_ocr_test.sh
-└── results/
-    ├── glm_ocr_benchmark.json / .md          # PyTorch (fp32) results
-    ├── glm_ocr_ollama_benchmark.json / .md    # Ollama (F16) results
-    ├── glm_ocr_sglang_benchmark.json / .md    # SGLang result
-    └── rerun_comparison.json                  # cross-runtime comparison
+    ├── glm_ocr_test.py
+    └── ollama_ocr_test.sh
 ```
 
 ## Prerequisites
 
 - aarch64 Linux or x86_64 (both Ollama and SGLang will run on x86_64; SGLang still skips on aarch64)
 - Python 3.12, `python3-venv`, `curl`, `zstd`, `tar`, `pigz`/`base64`
-- ~12 GB free disk (HF cache 3.2 GB + venvs + Ollama 2.2 GB)
-- Network access to PyPI, `download.pytorch.org`, `ollama.com`, and
-  `huggingface.co`
-- **No sudo**: Ollama is installed by extracting a tarball into a local dir
+- ~12 GB free disk
+- **No sudo**: The script doesnt request for sudo password for any install, instead Ollama is installed by extracting a tarball into a local dir.
 
 ## How to run
 
@@ -60,5 +53,3 @@ Python 3.12.3. Measurements exclude model load.
 | PyTorch  | fp32  | **~206–262 s** | **~6.6 GB** | `threads=2` |
 | Ollama   | F16   | **~79 s**      | **~3.0 GB** | llama.cpp; ~2.6× faster than PyTorch |
 | SGLang   | —     | not viable     | —        | aarch64 CPU; there's no torchvision CPU wheel, AMX-only engine |
-
-See `glm-ocr-experiment/results/` for the full JSON logs and per-run markdown reports.

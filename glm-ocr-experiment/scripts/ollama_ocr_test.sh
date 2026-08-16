@@ -1,24 +1,4 @@
 #!/usr/bin/env bash
-#
-# ollama_ocr_test.sh — reusable GLM-OCR benchmark over Ollama (CPU, ARM64)
-#
-# What it does:
-#   1. Locates/starts the `ollama` server (starts it only if not already answering).
-#   2. Pulls `glm-ocr` only if it is not already present.
-#   3. Runs OCR on a given image via the multimodal /api/chat endpoint.
-#   4. Prints wall-clock time, time-to-first-token, generation time, token count,
-#      and peak RSS (GB) of the `llama-server` inference process.
-#
-# Usage:
-#   ./ollama_ocr_test.sh [IMAGE_PATH] [PROMPT]
-#   IMAGE_PATH defaults to /tmp/sample_doc.png
-#   PROMPT     defaults to "Text Recognition:"
-#
-# Environment overrides:
-#   OLLAMA_BIN_DIR  directory containing the `ollama` binary (default: auto-detect)
-#   OLLAMA_HOME     model/blob storage (default: ~/.ollama)
-#   OLLAMA_HOST     server URL (default: http://localhost:11434)
-#
 set -u
 
 IMAGE_PATH="${1:-/tmp/sample_doc.png}"
@@ -26,7 +6,6 @@ PROMPT="${2:-Text Recognition:}"
 OLLAMA_HOST="${OLLAMA_HOST:-http://localhost:11434}"
 export OLLAMA_HOME="${OLLAMA_HOME:-$HOME/.ollama}"
 
-# --- locate ollama binary ---------------------------------------------------
 if [ -n "${OLLAMA_BIN_DIR:-}" ]; then
     export PATH="$OLLAMA_BIN_DIR:$PATH"
 fi
@@ -43,7 +22,6 @@ fi
 
 echo "Using ollama: $(command -v ollama)  (version $(ollama --version 2>/dev/null))"
 
-# --- ensure server is running ------------------------------------------------
 if curl -fsS --max-time 3 "${OLLAMA_HOST}/" >/dev/null 2>&1; then
     echo "Ollama server already up at ${OLLAMA_HOST}"
 else
@@ -62,7 +40,6 @@ else
     fi
 fi
 
-# --- ensure model is present ------------------------------------------------
 if ! ollama list 2>/dev/null | grep -q "glm-ocr"; then
     echo "Pulling glm-ocr (this can take a few minutes)..."
     ollama pull glm-ocr
@@ -70,13 +47,11 @@ else
     echo "glm-ocr already present."
 fi
 
-# --- sanity check image -----------------------------------------------------
 if [ ! -f "$IMAGE_PATH" ]; then
     echo "ERROR: image not found: $IMAGE_PATH" >&2
     exit 1
 fi
 
-# --- run OCR + measure (streaming client with RSS sampling) ------------------
 echo
 echo "=== Running OCR on: $IMAGE_PATH ==="
 echo "=== Prompt: $PROMPT ==="

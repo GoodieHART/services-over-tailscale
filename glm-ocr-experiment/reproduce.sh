@@ -1,18 +1,4 @@
 #!/usr/bin/env bash
-#
-# reproduce.sh — one-shot reproduction for the GLM-OCR CPU benchmark experiment.
-#
-# Three self-contained install→benchmark flows:
-#   pytorch   : transformers + CPU-only torch (fp32, threads=2)
-#   ollama    : no-sudo extract install of Ollama + llama.cpp F16
-#   sglang    : SKIP on arm64 (not viable); real CPU install on x86_64
-#
-# Usage:
-#   ./reproduce.sh pytorch | ollama | sglang | all
-#
-#   No argument prints usage and exits WITHOUT running anything, so you do
-#   not accidentally hammer the (2-vCPU, 11 GB) box by running all three.
-#
 set -euo pipefail
 
 BUNDLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,9 +10,6 @@ if [ ! -f "${SAMPLE_IMG}" ]; then
   exit 1
 fi
 
-# ---------------------------------------------------------------------------
-# PYTORCH  (path A)
-# ---------------------------------------------------------------------------
 run_pytorch() {
   echo "==================== PYTORCH PATH ===================="
   echo "Installing CPU-only torch + transformers and running the fp32 benchmark."
@@ -39,15 +22,10 @@ run_pytorch() {
 
   pip install --upgrade pip
 
-  # CONSTRAINT 1: on aarch64 the default `pip install torch` pulls a CUDA wheel.
-  # Force the CPU wheel explicitly or the install will fail / pull nvidia deps.
+  # aarch64 default pip torch pulls a CUDA wheel; CPU wheel required
   pip install torch --index-url https://download.pytorch.org/whl/cpu
 
-  # CONSTRAINT 2/3: dev transformers registers GlmOcrForConditionalGeneration
-  # (AutoModelForImageTextToText). The original script defaults to dtype="auto",
-  # which resolves to bfloat16 on this CPU and is pathologically slow (killed at
-  # >86 min). We FORCE float32 by generating a patched copy (the original
-  # scripts/glm_ocr_test.py is left untouched per experiment rules).
+  # dtype="auto" resolves to bfloat16 here and is pathologically slow (killed >86 min); force float32
   pip install "transformers>=5.0.0" pillow
 
   python3 - "${SCRIPTS_DIR}/glm_ocr_test.py" "${bench_py}" <<'PY'
@@ -65,18 +43,13 @@ PY
   echo "==================== END PYTORCH ===================="
 }
 
-# ---------------------------------------------------------------------------
-# OLLAMA  (path B)
-# ---------------------------------------------------------------------------
 run_ollama() {
   echo "==================== OLLAMA PATH ===================="
   echo "No-sudo extract install of Ollama, pull GLM-OCR (F16), run benchmark."
   local install_dir="${BUNDLE_DIR}/ollama_install"
   local arch ollama_url ollama_tar
 
-  # CONSTRAINT 5: the system installer needs sudo, so extract the official
-  # tarball into a local dir and run the binary from there. Pick the arch
-  # matching the host (arm64 vs amd64) so the bundle works on both.
+  # system installer needs sudo; extract tarball locally instead
   arch="$(uname -m)"
   case "${arch}" in
     aarch64|arm64) ollama_url="https://ollama.com/download/ollama-linux-arm64.tar.zst" ;;
@@ -95,23 +68,17 @@ run_ollama() {
   export PATH="${install_dir}/bin:${PATH}"
   export OLLAMA_HOME="${OLLAMA_HOME:-$HOME/.ollama}"
 
-  # The bundled script starts the server if needed, pulls glm-ocr only if
-  # missing, and prints wall-clock + peak-RSS timing on sample_doc.png.
+  # starts the server if needed and pulls glm-ocr if missing
   bash "${SCRIPTS_DIR}/ollama_ocr_test.sh" "${SAMPLE_IMG}" "Text Recognition:"
   echo "==================== END OLLAMA ===================="
 }
 
-# ---------------------------------------------------------------------------
-# SGLANG  (path C)
-# ---------------------------------------------------------------------------
 run_sglang() {
   echo "==================== SGLANG PATH ===================="
   local arch
   arch="$(uname -m)"
 
-  # CONSTRAINT 4: SGLang is NOT viable on aarch64/arm64 CPU. It imports
-  # torchvision at load time, and there is no CPU-only aarch64 torchvision
-  # wheel (only CUDA-linked); its CPU engine is Intel/AMX-only. Skip on arm64.
+  # no CPU-only aarch64 torchvision wheel (imported at load time); CPU engine is Intel/AMX-only
   if [ "${arch}" = "aarch64" ] || [ "${arch}" = "arm64" ]; then
     echo "SKIPPED: SGLang not viable on aarch64/arm64 CPU" \
          "(no CPU torchvision wheel; Intel/AMX-only CPU engine)"
@@ -119,7 +86,6 @@ run_sglang() {
     return 0
   fi
 
-  # Only attempt a real install on x86_64; other arches just skip with a note.
   if [ "${arch}" != "x86_64" ] && [ "${arch}" != "amd64" ]; then
     echo "SKIPPED: SGLang CPU install only implemented for x86_64 in this bundle (arch=${arch})"
     echo "==================== END SGLANG ===================="
@@ -137,7 +103,6 @@ run_sglang() {
   git clone --depth 1 https://github.com/sgl-project/sglang.git
   ( cd sglang/python && cp pyproject_cpu.toml pyproject.toml && pip install . )
 
-  # Launch server (Intel/AMX CPU engine), wait for readiness, then OCR + time.
   SGLANG_USE_CPU_ENGINE=1 python -m sglang.launch_server \
       --model zai-org/GLM-OCR --device cpu --port 30000 &
   local srv_pid=$!
@@ -171,7 +136,6 @@ PY
   echo "==================== END SGLANG ===================="
 }
 
-# ---------------------------------------------------------------------------
 usage() {
   cat >&2 <<'EOF'
 Usage: ./reproduce.sh {pytorch|ollama|sglang|all}

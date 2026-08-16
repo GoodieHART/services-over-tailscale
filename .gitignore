@@ -1,5 +1,5 @@
 gguf-bench/
-
+**__pycache__**
 gguf-llm-experiment/llama.cpp/
 gguf-llm-experiment/models/
 

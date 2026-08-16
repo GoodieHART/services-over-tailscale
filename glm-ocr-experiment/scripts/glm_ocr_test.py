@@ -1,39 +1,8 @@
 #!/usr/bin/env python3
-"""
-GLM-OCR CPU-only inference test / benchmark script.
+"""GLM-OCR CPU-only inference benchmark.
 
-Target: 2x Cortex-A72 (or Neoverse N1) class ARM, ~12 GB RAM, no GPU.
-Verified on: aarch64 Linux, 2 vCPUs, 11 GB RAM, Python 3.12, torch CPU wheel.
-
-------------------------------------------------------------------------
-INSTALL (CPU-only, aarch64) -- do NOT install any CUDA/torch CUDA build:
-------------------------------------------------------------------------
-    python3 -m venv glmocr_venv
-    source glmocr_venv/bin/activate
-    pip install --upgrade pip
-    # CPU-only torch for aarch64 (the default PyPI 'torch' may pull CUDA deps
-    # on aarch64; force the CPU wheel explicitly):
-    pip install torch --index-url https://download.pytorch.org/whl/cpu
-    # GLM-OCR needs the dev transformers that registers GlmOcrForConditionalGeneration:
-    pip install "git+https://github.com/huggingface/transformers.git"
-    pip install pillow torchvision accelerate
-
-NOTE on dtype: the repo defaults to bfloat16 (torch_dtype="auto"). Cortex-A72 /
-Neoverse-N1 class ARM CPUs have NO bf16 fast path, so oneDNN falls back to a slow
-bf16->fp32 path. Pass --dtype float32 (or set the default below) for the native
-fp32 path. Memory with float32 is ~2x the bf16 weights but still fits 12 GB.
-
-------------------------------------------------------------------------
-USAGE:
-------------------------------------------------------------------------
-    GLM_OCR_THREADS=2 python glm_ocr_test.py /path/to/image.png
-    # or
-    python glm_ocr_test.py --image /path/to/image.png --threads 4 --max-new-tokens 2048
-
-The script loads the model once, runs OCR, and prints load time, per-image
-inference wall time, and peak RSS (resident set size). It also returns the
-OCR text. Peak RSS is read from resource.getrusage(RUSAGE_SELF).ru_maxrss
-(which is monotonic / process-lifetime maximum on Linux, in KB).
+dtype="auto" resolves to bfloat16; this CPU class has no bf16 fast path and
+oneDNN falls back to a slow bf16->fp32 path, so pass --dtype float32.
 """
 import os
 import time
@@ -48,12 +17,11 @@ MODEL_ID = "zai-org/GLM-OCR"
 
 
 def peak_rss_gb() -> float:
-    """Process-lifetime peak resident set size in GB (Linux: ru_maxrss is KB)."""
+    """Process-lifetime peak RSS in GB. Linux ru_maxrss is KB; macOS is bytes."""
     return resource.getrusage(resource.RUSAGE_SELF).ru_maxrss / 1024.0 / 1024.0
 
 
 def load_model(model_id: str = MODEL_ID, dtype: str = "auto"):
-    """Load processor + model. Returns (processor, model, load_time_s)."""
     t0 = time.perf_counter()
     processor = AutoProcessor.from_pretrained(model_id)
     model = AutoModelForImageTextToText.from_pretrained(
@@ -69,7 +37,6 @@ def load_model(model_id: str = MODEL_ID, dtype: str = "auto"):
 
 def run_ocr(processor, model, image_path: str, prompt: str = "Text Recognition:",
             max_new_tokens: int = 2048):
-    """Run single-image OCR. Returns (text, infer_time_s)."""
     image = Image.open(image_path).convert("RGB")
     messages = [{
         "role": "user",
