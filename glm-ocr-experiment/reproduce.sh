@@ -49,6 +49,16 @@ run_ollama() {
   local install_dir="${BUNDLE_DIR}/ollama_install"
   local arch ollama_url ollama_tar
 
+  # tarball + extract + ~/.ollama model need ~6 GB; refuse on short disk
+  for d in "${BUNDLE_DIR}" "$HOME"; do
+    local free_kb
+    free_kb=$(df -Pk "$d" | awk 'NR==2{print $4}')
+    if [ "${free_kb}" -lt 10485760 ]; then
+      echo "ERROR: <10 GB free on $(df -Pk "$d" | awk 'NR==2{print $6}') — refusing ollama path" >&2
+      return 1
+    fi
+  done
+
   # system installer needs sudo; extract tarball locally instead
   arch="$(uname -m)"
   case "${arch}" in
@@ -63,6 +73,7 @@ run_ollama() {
     curl -fsSL -o "${ollama_tar}" "${ollama_url}"
     mkdir -p "${install_dir}"
     zstd -d -c "${ollama_tar}" | tar -xf - -C "${install_dir}"
+    rm -f "${ollama_tar}"
   fi
 
   export PATH="${install_dir}/bin:${PATH}"

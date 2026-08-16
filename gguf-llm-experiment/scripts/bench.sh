@@ -31,10 +31,10 @@ LOG="/tmp/bench_$$.log"
 
 echo "== bench: $(basename "$MODEL")"
 echo "== bin:   $BIN"
-echo "== flags: -n ${N:-64} -t 2 --temp 0.7 --no-display-prompt --no-mmap ${REASONING:---reasoning off} --single-turn ${EXTRA:-}"
+echo "== flags: -n ${N:-64} -t 2 --temp 0.7 --no-display-prompt --no-mmap -c ${CTX:-4096} ${REASONING:---reasoning off} --single-turn ${EXTRA:-}"
 
 # --no-mmap forces full residency: VmHWM is the true peak, not the lazy-mmap under-report
-"$BIN" -m "$MODEL" -p "$PROMPT" -n ${N:-64} -t 2 --temp 0.7 --no-display-prompt --no-mmap ${REASONING:---reasoning off} --single-turn ${EXTRA:-} > "$LOG" 2>&1 &
+"$BIN" -m "$MODEL" -p "$PROMPT" -n ${N:-64} -t 2 --temp 0.7 --no-display-prompt --no-mmap -c ${CTX:-4096} ${REASONING:---reasoning off} --single-turn ${EXTRA:-} > "$LOG" 2>&1 &
 PID=$!
 MAX=0
 while kill -0 "$PID" 2>/dev/null; do

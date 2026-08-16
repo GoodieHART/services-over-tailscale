@@ -2,6 +2,10 @@ gguf-bench/
 **__pycache__**
 gguf-llm-experiment/llama.cpp/
 gguf-llm-experiment/models/
+glm-ocr-experiment/sglang/
+glm-ocr-experiment/glmocr_bench_fp32.py
 
 .omo
 *results*
+*venv*
+*ollama*

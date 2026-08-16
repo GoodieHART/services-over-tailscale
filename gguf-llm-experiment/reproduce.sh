@@ -10,7 +10,7 @@ LLAMA_BIN="${LLAMA_DIR}/build/bin/llama-cli"
 
 HF_BASE="https://huggingface.co"
 
-declare -A REPO FILE EXTRA
+declare -A REPO FILE EXTRA CTX
 REPO[e2b]="unsloth/gemma-4-E2B-it-GGUF"
 FILE[e2b]="gemma-4-E2B-it-Q4_K_M.gguf"
 
@@ -19,7 +19,7 @@ FILE[e4b]="gemma-4-E4B-it-Q4_K_M.gguf"
 
 REPO[ornith]="ornith-ai/Ornith-1.0-9B-GGUF"
 FILE[ornith]="ornith-1.0-9b-Q4_K_M.gguf"
-EXTRA[ornith]="-c 2048"        # If we don't cap the 262K native context your system will hit an OOM or may hang, well depends on your setup.
+CTX[ornith]=2048        # If we don't cap the 262K native context your system will hit an OOM or may hang, well depends on your setup.
 
 REPO[12b]="yuxinlu1/gemma-4-12B-agentic-fable5-composer2.5-v2-3.5x-tau2-GGUF"
 FILE[12b]="gemma4-v2-Q4_K_M.gguf"
@@ -53,7 +53,7 @@ setup() {
 run_model() {
   local key="$1"
   local repo="${REPO[$key]}" file="${FILE[$key]}"
-  local extra="${EXTRA[$key]:-}"
+  local extra="${EXTRA[$key]:-}" ctx="${CTX[$key]:-4096}"
   local dest="${MODELS_DIR}/${file}"
   local url="${HF_BASE}/${repo}/resolve/main/${file}"
 
@@ -75,7 +75,7 @@ run_model() {
   echo "Downloaded: ${dest} ($(du -h "${dest}" | cut -f1))"
 
   echo "Benchmarking (n=64, reasoning off, no-mmap for true peak RSS) ..."
-  EXTRA="${extra}" LLAMA_BIN="${LLAMA_BIN}" bash "${BENCH}" "${dest}"
+  CTX="${ctx}" EXTRA="${extra}" LLAMA_BIN="${LLAMA_BIN}" bash "${BENCH}" "${dest}"
 
   rm -f "${dest}"
   echo "Deleted ${dest} (disk rule: one model at a time)"

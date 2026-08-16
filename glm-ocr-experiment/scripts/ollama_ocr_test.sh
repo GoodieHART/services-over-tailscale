@@ -41,7 +41,7 @@ else
 fi
 
 if ! ollama list 2>/dev/null | grep -q "glm-ocr"; then
-    echo "Pulling glm-ocr (this can take a few minutes)..."
+    echo "Pulling glm-ocr (first run: ~2 GB download + cold load, can take 10+ min)..."
     ollama pull glm-ocr
 else
     echo "glm-ocr already present."
@@ -82,8 +82,8 @@ def find_runner():
 rss_samples = []
 stop = False
 def sampler():
-    pid = find_runner()
     while not stop:
+        pid = find_runner()
         if pid:
             try:
                 rss = int(subprocess.check_output(["ps", "-o", "rss=", "-p", str(pid)]).decode().strip())
