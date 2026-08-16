@@ -1,3 +1,7 @@
-report.md
-results/
-VERIFICATION.md
+gguf-bench/
+
+gguf-llm-experiment/llama.cpp/
+gguf-llm-experiment/models/
+
+.omo
+*results*
